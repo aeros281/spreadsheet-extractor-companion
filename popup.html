@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spreadsheet Extractor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0f14;
+      --surface: #16181f;
+      --surface2: #1e2029;
+      --border: #2a2d3a;
+      --border-bright: #3d4155;
+      --accent: #4ade80;
+      --accent-dim: rgba(74, 222, 128, 0.12);
+      --accent-glow: rgba(74, 222, 128, 0.25);
+      --text: #e8eaf0;
+      --text-muted: #6b7080;
+      --text-dim: #9499a8;
+      --danger: #f87171;
+      --warn: #fbbf24;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    body {
+      width: 480px;
+      min-height: 200px;
+      max-height: 680px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo svg { color: #0e0f14; }
+
+    .header-text h1 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+
+    .header-text p {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .header-badge {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid rgba(74,222,128,0.2);
+      border-radius: 4px;
+      padding: 2px 7px;
+    }
+
+    /* ── Scroll container ── */
+    .scroll-body {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .scroll-body::-webkit-scrollbar { width: 4px; }
+    .scroll-body::-webkit-scrollbar-track { background: transparent; }
+    .scroll-body::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 4px; }
+
+    /* ── Meta info ── */
+    .meta-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .meta-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 10px;
+    }
+
+    .meta-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .meta-value.editable {
+      background: transparent;
+      border: none;
+      outline: none;
+      width: 100%;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      cursor: text;
+    }
+
+    .meta-value.editable:focus {
+      color: var(--accent);
+    }
+
+    .meta-item.full-width {
+      grid-column: 1 / -1;
+    }
+
+    /* ── Error / warning states ── */
+    .state-msg {
+      padding: 16px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      display: none;
+    }
+
+    .state-msg.visible { display: block; }
+
+    .state-msg .emoji { font-size: 24px; margin-bottom: 8px; display: block; }
+
+    /* ── Section header ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px 8px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .col-count {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2px 8px;
+    }
+
+    /* ── Column table ── */
+    .col-table {
+      padding: 0 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .col-table-head {
+      display: grid;
+      grid-template-columns: 32px 1fr 76px 68px;
+      gap: 8px;
+      padding: 0 8px 6px;
+    }
+
+    .th {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .th.center { text-align: center; }
+
+    .col-row {
+      display: grid;
+      grid-template-columns: 32px 1fr 76px 68px;
+      gap: 8px;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 8px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .col-row:hover {
+      border-color: var(--border-bright);
+      background: var(--surface2);
+    }
+
+    .col-row.excluded {
+      opacity: 0.4;
+    }
+
+    .col-letter {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .col-name-input {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 4px 6px;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      width: 100%;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .col-name-input:focus {
+      border-color: var(--border-bright);
+      background: var(--bg);
+    }
+
+    .col-name-input::placeholder { color: var(--text-muted); }
+
+    /* Checkboxes */
+    .check-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .custom-check {
+      width: 16px; height: 16px;
+      border: 1.5px solid var(--border-bright);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.12s;
+      background: var(--bg);
+    }
+
+    .custom-check:hover { border-color: var(--accent); }
+
+    .custom-check.checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .custom-check.checked svg { display: block; }
+    .custom-check svg { display: none; width: 10px; height: 10px; color: #0e0f14; }
+
+    .custom-check.repeat-check.checked {
+      background: var(--warn);
+      border-color: var(--warn);
+    }
+
+    .custom-check.repeat-check:hover { border-color: var(--warn); }
+
+    /* ── Command output ── */
+    .cmd-section {
+      padding: 0 16px 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+
+    .cmd-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 10px 0 7px;
+    }
+
+    .cmd-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.7;
+      word-break: break-all;
+      position: relative;
+      min-height: 54px;
+    }
+
+    .cmd-box .keyword { color: var(--accent); font-weight: 700; }
+    .cmd-box .arg { color: #60a5fa; }
+    .cmd-box .flag { color: var(--warn); }
+    .cmd-box .value { color: #c084fc; }
+
+    /* ── Actions ── */
+    .actions {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px 14px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 9px 12px;
+      border-radius: 7px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-copy {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(74,222,128,0.25);
+    }
+
+    .btn-copy:hover {
+      background: rgba(74,222,128,0.2);
+      border-color: var(--accent);
+    }
+
+    .btn-copy.copied {
+      background: var(--accent);
+      color: #0e0f14;
+      border-color: var(--accent);
+    }
+
+    .btn-reload {
+      background: var(--surface);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      flex: 0 0 auto;
+      padding: 9px 14px;
+    }
+
+    .btn-reload:hover {
+      border-color: var(--border-bright);
+      color: var(--text);
+    }
+
+    /* ── Not a sheets tab ── */
+    #not-sheets {
+      padding: 24px 16px;
+      text-align: center;
+    }
+
+    #not-sheets .big-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+
+    #not-sheets h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    #not-sheets p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .main-content { display: none; }
+    .main-content.visible { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h9" />
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1>Spreadsheet Extractor</h1>
+      <p>Configure columns and generate CLI command</p>
+    </div>
+    <span class="header-badge">v1.0</span>
+  </div>
+
+  <!-- Not a sheets tab message -->
+  <div id="not-sheets" style="display:none;">
+    <div class="big-icon">📊</div>
+    <h2>No Google Sheet detected</h2>
+    <p>Open a Google Sheets spreadsheet and click the extension to configure extraction.</p>
+  </div>
+
+  <!-- Main content -->
+  <div class="main-content" id="main-content">
+    <div class="scroll-body">
+
+      <!-- Meta info -->
+      <div class="meta-section">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">Sheet ID</div>
+            <div class="meta-value" id="meta-id" title="">—</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">GID</div>
+            <div class="meta-value" id="meta-gid">—</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Range</div>
+            <div class="meta-value">
+              <input class="meta-value editable" id="meta-range" placeholder="e.g. B2:F50" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columns section -->
+      <div id="cols-wrap" style="display:none;">
+        <div class="section-header">
+          <span class="section-title">Columns</span>
+          <span class="col-count" id="col-count">0 cols</span>
+        </div>
+
+        <div class="col-table">
+          <div class="col-table-head">
+            <div class="th center">Col</div>
+            <div class="th">Header name</div>
+            <div class="th center">Repeat?</div>
+            <div class="th center">Include?</div>
+          </div>
+          <div id="col-rows"></div>
+        </div>
+      </div>
+
+      <div id="no-range-msg" style="padding:14px 16px; color:var(--text-muted); font-size:12px; text-align:center; display:none;">
+        Enter a range above to configure columns.
+      </div>
+
+      <!-- Command output -->
+      <div class="cmd-section" id="cmd-section" style="display:none;">
+        <div class="cmd-label">Generated Command</div>
+        <div class="cmd-box" id="cmd-output">—</div>
+      </div>
+
+    </div>
+
+    <!-- Actions -->
+    <div class="actions" id="actions" style="display:none;">
+      <button class="btn btn-reload" id="btn-reload" title="Refresh from tab">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Refresh
+      </button>
+      <button class="btn btn-copy" id="btn-copy">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        Copy Command
+      </button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

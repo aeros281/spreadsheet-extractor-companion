@@ -2,12 +2,15 @@ name: Build Extension
 
 on:
   push:
-    branches: [master, main]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -24,9 +27,9 @@ jobs:
             content.js \
             icons/
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: spreadsheet-extractor-v${{ steps.version.outputs.version }}
-          path: spreadsheet-extractor-v${{ steps.version.outputs.version }}.zip
-          retention-days: 90
+          tag_name: ${{ github.ref_name }}
+          name: v${{ steps.version.outputs.version }}
+          files: spreadsheet-extractor-v${{ steps.version.outputs.version }}.zip

@@ -171,14 +171,14 @@ function buildCommand() {
     .filter(c => c.repeat)
     .map(c => c.letter);
 
-  let cmd = `spreadsheet-extractor fetch-sheet \\\n  ${id} \\\n  ${gid} \\\n  ${range}`;
+  let cmd = `spreadsheet-extractor fetch-sheet ${id} ${gid} ${range}`;
 
   if (headers.length > 0) {
-    cmd += ` \\\n  --headers "${headers.join(',')}"`;
+    cmd += ` --headers "${headers.join(',')}"`;
   }
 
   if (repeatCols.length > 0) {
-    cmd += ` \\\n  --repeat-columns ${repeatCols.join(',')}`;
+    cmd += ` --repeat-columns ${repeatCols.join(',')}`;
   }
 
   return cmd;
@@ -190,8 +190,7 @@ function syntaxHighlight(cmd) {
     .replace(/(fetch-sheet)/g, '<span class="keyword">$1</span>')
     .replace(/(--headers|--repeat-columns)/g, '<span class="flag">$1</span>')
     .replace(/"([^"]+)"/g, '"<span class="value">$1</span>"')
-    .replace(/\\\n/g, ' \\\n')
-    .replace(/\n/g, '<br>');
+    ;
 }
 
 function updateCommand() {

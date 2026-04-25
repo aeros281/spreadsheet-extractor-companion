@@ -1,0 +1,32 @@
+name: Build Extension
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: echo "version=$(jq -r .version manifest.json)" >> $GITHUB_OUTPUT
+
+      - name: Zip extension
+        run: |
+          zip -r spreadsheet-extractor-v${{ steps.version.outputs.version }}.zip \
+            manifest.json \
+            popup.html \
+            popup.js \
+            content.js \
+            icons/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spreadsheet-extractor-v${{ steps.version.outputs.version }}
+          path: spreadsheet-extractor-v${{ steps.version.outputs.version }}.zip
+          retention-days: 90
